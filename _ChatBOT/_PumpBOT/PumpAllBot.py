@@ -255,5 +255,5 @@ class PumpAllBot:
 
 
 sleep_seconds = 1
-init = PumpAllBot(sleep_seconds, usdt=20, wallet='SPOT')
+init = PumpAllBot(sleep_seconds, usdt=15, wallet='SPOT')
 init.init()
