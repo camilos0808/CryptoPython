@@ -6,7 +6,7 @@ from c_BinanceWebSocket import BinanceWebSocket
 import numpy as np
 import matplotlib.pyplot as plt
 from decimal import Decimal
-from clases import Symbol
+from c_Symbol import Symbol
 
 client = Client(api_key=keys.binance_api_key_out, api_secret=keys.binance_api_secret_out)
 side_d = {1: 'BUY', -1: 'SELL'}
