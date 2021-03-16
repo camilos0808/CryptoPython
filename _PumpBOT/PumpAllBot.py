@@ -10,7 +10,6 @@ from Classes.c_Trade import Spot_Trade
 import pathlib
 
 
-
 class CoinHistoric:
 
     def __init__(self, symbol, max_number, **kwargs):
@@ -50,8 +49,7 @@ class CoinHistoric:
 
 
 class Historic:
-
-    INIT = os.path.join(pathlib.Path().absolute(),'_DB')
+    INIT = os.path.join(pathlib.Path().absolute(), '_DB')
 
     def __init__(self, seconds, max_numbers, wallet='SPOT', **kwargs):
         self.wallet = wallet
@@ -63,7 +61,7 @@ class Historic:
             self.symbols = {}
 
     def add_coin(self, symbol):
-        if not symbol in self.symbols.keys():
+        if symbol not in self.symbols.keys():
             self.symbols[symbol] = CoinHistoric(symbol, self.max)
             print('Added {}'.format(symbol))
         else:
