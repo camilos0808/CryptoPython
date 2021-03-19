@@ -344,17 +344,19 @@ class Spot_Trade:
         telegram_bot_sendtext(msg)
 
     def OCO_order(self, qty, maker_price, stop_price, slprice):
+
         order = client.create_oco_order(symbol=self.symbol, side=self.SIDE_DICT[-1 * self.side], quantity=qty,
                                         price=maker_price,
                                         stopPrice=stop_price, stopLimitPrice=slprice, stopLimitTimeInForce='GTC')
         return order
+
 
     def set_scaling_OCO_sell(self, qty_list, prc_list, st):
         if len(qty_list) != len(prc_list):
             raise TypeError('list of different Size')
 
         price_sp = self.symbol.spot_correct_price(self.entry_info[0]['price'] * (1 - self.side * st))
-        price_sl = self.symbol.spot_correct_price(self.entry_info[0]['price'] * (1 - self.side * (st - 0.005)))
+        price_sl = self.symbol.spot_correct_price(self.entry_info[0]['price'] * (1 - self.side * st))
 
         num = len(prc_list)
         executed = 0
@@ -389,18 +391,18 @@ class Spot_Trade:
                 if len(index_left) > 0:
                     for i in index_left:
                         cancel_id = self.sell_info[i]['makerId']
-
+                        client.cancel_order(symbol=self.symbol.name, orderId=cancel_id)
 
                         qty = self.sell_info[i]['qty']
                         maker_price = self.sell_info[i]['price']
                         new_sp = (float(self.sell_info[i - 1]['price']) - float(self.entry_info[0]['price'])) * 0.6 \
                                  + float(self.entry_info[0]['price'])
                         sp = self.symbol.spot_correct_price(new_sp)
-                        sl = self.symbol.spot_correct_price(float(sp) * (1 + 0.005))
+                        sl = sp
 
                         order = self.OCO_order(qty, maker_price, sp, sl)
                         self.sell_info[i] = effective_trade_info_dict(order, oco=True)
-                        client.cancel_order(symbol=self.symbol.name, orderId=cancel_id)
+
                 else:
                     break
             elif status == 'CANCELED':
@@ -436,8 +438,8 @@ class Spot_Trade:
         self.sell_info.append(effective_trade_info_dict(order))
 
 
-# symbol = 'ETHBTC'
-# usdt = 15
+# symbol = 'CTXCBTC'
+# usdt = 50
 # side = 1
 # df = pd.DataFrame(client.get_all_tickers())
 # df.set_index('symbol', inplace=True)

@@ -191,7 +191,7 @@ class PumpAllBot:
                 print(e)
                 continue
             # print(symbol, val)
-            if val > 30:
+            if val > 20:
 
                 if mb(time):
                     lp = float(prc_change['f_price'][symbol])
@@ -226,7 +226,7 @@ class PumpAllBot:
         self.trade = Spot_Trade(symbol=symbol, side=1, trade_type='MARKET', usdt=self.usdt, lastPrice=lp,
                                 BTCUSDT_lp=lp_btcusdt)
         self.trade.enter_trade()
-        self.trade.set_scaling_OCO_sell([0.2, 0.5, 0.3], [0.1, 0.3, 0.5], 0.04)
+        self.trade.set_scaling_OCO_sell([0.2, 0.5, 0.3], [0.12, 0.3, 0.5], 0.05)
         self.trade.init_scaling_OCO_sell()
         # df = self.trade.trade_to_df()
         # self.trades = pd.concat([self.trades, df])
@@ -253,5 +253,5 @@ class PumpAllBot:
 
 
 sleep_seconds = 1
-init = PumpAllBot(sleep_seconds, usdt=15, wallet='SPOT')
+init = PumpAllBot(sleep_seconds, usdt=30, wallet='SPOT')
 init.init()
