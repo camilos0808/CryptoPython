@@ -172,14 +172,20 @@ class PumpAllBot:
         dumped_coins = []
         while True:
             self.iter += 1
-            prc_change = self.change()
+            try:
+                prc_change = self.change()
+            except:
+                sleep(60)
+                continue
+
             prc_series = (prc_change['price'].astype(float) / prc_change['f_price'].astype(float) - 1) * 100
             prc_series = prc_series[~prc_series.index.isin(dumped_coins)].copy()
             self.database.add_historic(prc_series)
             self.encode_db()
             historic_mean = self.database.mean_series()
-            try:
-                relative_prc = (prc_series / historic_mean).dropna().sort_values(ascending=False)
+
+            relative_prc = (prc_series / historic_mean).dropna().sort_values(ascending=False)
+            if relative_prc.__len__() != 0:
                 top_prc = list(relative_prc.head(1).to_dict().items())[0]
                 dumped_coins = list(relative_prc[relative_prc < - 40].copy().index)
 
@@ -187,23 +193,20 @@ class PumpAllBot:
                 val = round(top_prc[1], ndigits=2)
                 time = dt.datetime.now()
 
-            except Exception as e:
-                print(e)
-                continue
             # print(symbol, val)
-            if val > 20:
+                if val > 20:
 
-                if mb(time):
-                    lp = float(prc_change['f_price'][symbol])
-                    lp_btcusdt = float(prc_change['f_price']['BTCUSDT'])
-                    self.make_trade(symbol, lp, lp_btcusdt)
+                    if mb(time):
+                        lp = float(prc_change['f_price'][symbol])
+                        lp_btcusdt = float(prc_change['f_price']['BTCUSDT'])
+                        self.make_trade(symbol, lp, lp_btcusdt)
 
-                print(symbol, val)
-                self.pPumps[time.timestamp()] = {'symbol': symbol, 'rate': val, 'seconds': self.seconds,
-                                                 'available': self.database.symbols[symbol].len()}
-                self.save_pPumps()
-                if isinstance(self.trade, Spot_Trade):
-                    break
+                    print(symbol, val)
+                    self.pPumps[time.timestamp()] = {'symbol': symbol, 'rate': val, 'seconds': self.seconds,
+                                                     'available': self.database.symbols[symbol].len()}
+                    self.save_pPumps()
+                    if isinstance(self.trade, Spot_Trade):
+                        break
 
     def change(self):
         lp_df = spot_last_price().set_index('symbol')
@@ -244,14 +247,14 @@ class PumpAllBot:
 
         return df
 
-    # def entry_alert(self):
-    #     INIT = r'C:\Users\PC\PythonProjects\Crypto\_ChatBOT\_PumpBOT\_Files'
-    #     DIR = os.path.join(INIT, '_f.json')
-    #     exists = os.path.exists(DIR)
-    #     while not exists:
-    #         exists = os.path.exists(DIR)
+    def entry_alert(self):
+        INIT = r'C:\Users\PC\PythonProjects\Crypto\_ChatBOT\_PumpBOT\_Files'
+        DIR = os.path.join(INIT, '_f.json')
+        exists = os.path.exists(DIR)
+        while not exists:
+            exists = os.path.exists(DIR)
 
 
-sleep_seconds = 1
+sleep_seconds = 0.5
 init = PumpAllBot(sleep_seconds, usdt=30, wallet='SPOT')
 init.init()
