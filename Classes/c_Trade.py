@@ -1,6 +1,9 @@
 import support_keys as keys
 from binance.client import Client
-import math, pandas as pd, threading, datetime as dt
+import math
+import pandas as pd
+import threading
+import datetime as dt
 from support_sendTGM import telegram_bot_sendtext
 from Classes.c_BinanceWebSocket import BinanceWebSocket
 import numpy as np
@@ -273,7 +276,7 @@ class Spot_Trade:
 
             if self.symbol.name[-1] == 'C':
 
-                if ('BTCUSDT_lp' in kwargs.keys()):
+                if 'BTCUSDT_lp' in kwargs.keys():
                     self.priceBTC = kwargs['BTCUSDT_lp']
                     btc_tb = kwargs['usdt'] / kwargs['BTCUSDT_lp']
                     base_quantity = btc_tb
@@ -350,30 +353,36 @@ class Spot_Trade:
                                         stopPrice=stop_price, stopLimitPrice=slprice, stopLimitTimeInForce='GTC')
         return order
 
+    def scaling_correction(self, qty_list, prc_list, st):
 
-    def set_scaling_OCO_sell(self, qty_list, prc_list, st):
         if len(qty_list) != len(prc_list):
             raise TypeError('list of different Size')
 
         price_sp = self.symbol.spot_correct_price(self.entry_info[0]['price'] * (1 - self.side * st))
         price_sl = self.symbol.spot_correct_price(self.entry_info[0]['price'] * (1 - self.side * st))
 
-        num = len(prc_list)
-        executed = 0
-        for i in range(num):
-            qty_prc = qty_list[i]
-            price_prc = prc_list[i]
-            crc_price = self.symbol.spot_correct_price(float(self.entry_info[0]['price']) * (1 + price_prc))
-            if i != num - 1:
-                crc_qty = self.symbol.spot_correct_quantity(float(self.quantity) * qty_prc)
-            else:
-                crc_qty = float(Decimal(self.quantity.__str__()) - Decimal(executed.__str__()))
+        qty = np.array(qty_list) * float(self.quantity)
+        prc = (1 + np.array(prc_list)) * float(self.entry_info[0]['price'])
+        qty_corrected = np.array(list(map(self.symbol.spot_correct_quantity, qty)))
+        qty_calc = list(map(float, qty_corrected))
+        if sum(qty_calc) != float(self.quantity):
+            qty_corrected[-1] = float(Decimal(self.quantity.__str__()) - Decimal(sum(qty_calc[:-1]).__str__()))
+            qty_calc = list(map(float, qty_corrected))
+        prc_corrected = np.array(list(map(self.symbol.spot_correct_price, prc)))
 
-            order = self.OCO_order(crc_qty, crc_price, price_sp, price_sl)
+        min_qty = float(self.symbol.spot_min_quantity(min(float(price_sl), float(price_sp))))
+
+        if not all(np.array(qty_calc) >= min_qty):
+            raise ValueError('STOP LOSS ORDER BELOW MIN_NOMINAL')
+
+        return [[price_sl, price_sp, prc_corrected[i], qty_corrected[i]] for i in range(prc_corrected.__len__())]
+
+    def set_scaling_OCO_sell(self, scal_obj):
+
+        for scal_odr in scal_obj:
+            order = self.OCO_order(scal_odr[3], scal_odr[2], scal_odr[1], scal_odr[0])
 
             self.sell_info.append(effective_trade_info_dict(order, oco=True))
-
-            executed += float(crc_qty)
 
         print('DONE')
 
@@ -438,8 +447,8 @@ class Spot_Trade:
         self.sell_info.append(effective_trade_info_dict(order))
 
 
-# symbol = 'CTXCBTC'
-# usdt = 50
+# symbol = 'ETHBTC'
+# usdt = 30
 # side = 1
 # df = pd.DataFrame(client.get_all_tickers())
 # df.set_index('symbol', inplace=True)
@@ -449,6 +458,7 @@ class Spot_Trade:
 # # a.enter_trade()
 # # a.market_sell()
 # a.entry_info.append({'price': lastPrice})
-# a.set_scaling_OCO_sell([0.5, 0.5], [0.04, 0.1], 0.04)
+# scal_obj = a.scaling_correction([0.2, 0.4, 0.3], [0.04, 0.1, 0.2], 0.04)
+# a.set_scaling_OCO_sell(scal_obj)
 # a.init_scaling_OCO_sell()
 # a = 1

@@ -57,15 +57,19 @@ class Symbol:
         return self.__spot_tickers
 
     def spot_min_quantity(self, last_price):
-        return self.spot_correct_quantity(self.__spot_tickers['MIN_NOTIONAL'] / last_price)
 
-    def spot_correct_quantity(self, quantity):
+        return self.spot_correct_quantity(self.__spot_tickers['MIN_NOTIONAL'] / last_price,min=True)
+
+    def spot_correct_quantity(self, quantity,min=False):
         lot_size = self.__spot_tickers['LOT_SIZE']
         decimals = correct_decimals(lot_size)
         if decimals == -1:
             decimals = 0
 
-        corrected_qty = scientific_notation(math_ceil(quantity, decimals), decimals)
+        if not min:
+            corrected_qty = scientific_notation(round(quantity, decimals), decimals)
+        if min:
+            corrected_qty = scientific_notation(math_ceil(quantity, decimals), decimals)
 
         return corrected_qty
 
@@ -75,7 +79,7 @@ class Symbol:
         if decimals == -1:
             decimals = 0
 
-        corrected_price = scientific_notation(math_ceil(price, decimals), decimals)
+        corrected_price = scientific_notation(round(price, decimals), decimals)
 
         return corrected_price
 

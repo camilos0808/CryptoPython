@@ -229,8 +229,9 @@ class PumpAllBot:
         self.trade = Spot_Trade(symbol=symbol, side=1, trade_type='MARKET', usdt=self.usdt, lastPrice=lp,
                                 BTCUSDT_lp=lp_btcusdt)
         self.trade.enter_trade()
-        self.trade.set_scaling_OCO_sell([0.2, 0.5, 0.3], [0.12, 0.3, 0.5], 0.05)
-        self.trade.init_scaling_OCO_sell()
+        scal_obj = self.trade.scaling_correction([0.3, 0.4, 0.3], [0.12, 0.3, 0.5], 0.05)
+        self.trade.set_scaling_OCO_sell(scal_obj)
+        # self.trade.init_scaling_OCO_sell()
         # df = self.trade.trade_to_df()
         # self.trades = pd.concat([self.trades, df])
         # self.trades.to_json(self.trade_dir)
