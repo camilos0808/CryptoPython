@@ -266,6 +266,7 @@ class Spot_Trade:
         self.trade_type = trade_type
         self.entry_info = []
         self.sell_info = []
+        self.entry_time = dt.datetime.now()
 
     def quantity_init(self, kwargs: dict):
         if 'quantity' in kwargs.keys():
@@ -315,11 +316,18 @@ class Spot_Trade:
 
         elif self.trade_type == 'MARKET':
             self.status = 'POSITION'
-            order = client.create_order(symbol=self.symbol, type=self.trade_type, side=self.SIDE_DICT[self.side],
+            try:
+                order = client.create_order(symbol=self.symbol, type=self.trade_type, side=self.SIDE_DICT[self.side],
                                         quantity=self.quantity)
+            except Exception as e:
+                print(e)
+                print(self.symbol)
+                print(dt.datetime.now())
+                self.custom_message('Error on buying %s' % self.symbol)
+                exit()
 
             self.entry_info.append(effective_trade_info_dict(order))
-            # self.message()
+            self.message()
 
     def start_websocket(self, price):
 
@@ -333,6 +341,10 @@ class Spot_Trade:
         if self.ws_on:
             self.ws.ws.close()
             self.ws_on = False
+
+    def custom_message(self,message):
+
+        telegram_bot_sendtext(message)
 
     def message(self):
 

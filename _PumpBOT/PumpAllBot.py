@@ -193,7 +193,7 @@ class PumpAllBot:
                 val = round(top_prc[1], ndigits=2)
                 time = dt.datetime.now()
 
-            # print(symbol, val)
+                # print(symbol, val)
                 if val > 20:
 
                     if mb(time):
@@ -210,10 +210,9 @@ class PumpAllBot:
 
     def change(self):
         lp_df = spot_last_price().set_index('symbol')
-        lp_df = lp_df[((lp_df.index.str.endswith('USDT')) | (lp_df.index.str.endswith('BTC'))) & (
-            ~lp_df.index.str.contains('DOWN')) & (~lp_df.index.str.contains('UP')) & (
-                          ~lp_df.index.str.contains('BEAR')) & (~lp_df.index.str.contains('BULL'))].copy() \
-            .rename(columns={'price': 'f_price'})
+        lp_df = lp_df[(lp_df.index.str.endswith('BTC')) & (~lp_df.index.str.contains('DOWN')) &
+                      (~lp_df.index.str.contains('UP')) & (~lp_df.index.str.contains('BEAR')) &
+                      (~lp_df.index.str.contains('BULL'))].copy().rename(columns={'price': 'f_price'})
         sleep(self.seconds)
         lp2_df = spot_last_price().set_index('symbol')
 
@@ -229,7 +228,7 @@ class PumpAllBot:
         self.trade = Spot_Trade(symbol=symbol, side=1, trade_type='MARKET', usdt=self.usdt, lastPrice=lp,
                                 BTCUSDT_lp=lp_btcusdt)
         self.trade.enter_trade()
-        scal_obj = self.trade.scaling_correction([0.3, 0.4, 0.3], [0.12, 0.3, 0.5], 0.05)
+        scal_obj = self.trade.scaling_correction([0.6, 0.4], [0.1, 0.3], 0.05)
         self.trade.set_scaling_OCO_sell(scal_obj)
         # self.trade.init_scaling_OCO_sell()
         # df = self.trade.trade_to_df()
