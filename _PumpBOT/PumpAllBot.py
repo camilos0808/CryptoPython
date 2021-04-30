@@ -40,7 +40,11 @@ class CoinHistoric:
         return self.historic.__len__()
 
     def json_encode(self):
-        return {'symbol': self.symbol, 'max_number': self.max, 'historic': self.historic, self.__class__.__name__: True}
+        return {
+            'symbol': self.symbol,
+            'max_number': self.max,
+            'historic': self.historic,
+            self.__class__.__name__: True}
 
     @staticmethod
     def json_decode(ch):
@@ -100,8 +104,12 @@ class Historic:
         for symbol, historic in self.symbols.items():
             all_dict[symbol] = historic.json_encode()
 
-        dict_to_dump = {'seconds': self.seconds, 'max_number': self.max, 'symbols': all_dict, 'wallet': self.wallet,
-                        self.__class__.__name__: True}
+        dict_to_dump = {
+            'seconds': self.seconds,
+            'max_number': self.max,
+            'symbols': all_dict,
+            'wallet': self.wallet,
+            self.__class__.__name__: True}
 
         folder = 'seconds_{}'.format(self.seconds.__str__())
 
@@ -136,7 +144,9 @@ class Historic:
 
 class PumpAllBot:
     INIT = Historic.INIT
-    file_name = {'SPOT': 'pPumps.JSON', 'FUTURES': 'fpPumps.JSON'}
+    file_name = {
+        'SPOT': 'pPumps.JSON',
+        'FUTURES': 'fpPumps.JSON'}
 
     def __init__(self, seconds, max_columns=1000, wallet='SPOT', **kwargs):
         self.wallet = wallet
@@ -202,17 +212,21 @@ class PumpAllBot:
                         self.make_trade(symbol, lp, lp_btcusdt)
 
                     print(symbol, val)
-                    self.pPumps[time.timestamp()] = {'symbol': symbol, 'rate': val, 'seconds': self.seconds,
-                                                     'available': self.database.symbols[symbol].len()}
+                    self.pPumps[time.timestamp()] = {
+                        'symbol': symbol,
+                        'rate': val,
+                        'seconds': self.seconds,
+                        'available': self.database.symbols[symbol].len()}
                     self.save_pPumps()
                     if isinstance(self.trade, Spot_Trade):
                         break
 
     def change(self):
         lp_df = spot_last_price().set_index('symbol')
-        lp_df = lp_df[(lp_df.index.str.endswith('BTC')) & (~lp_df.index.str.contains('DOWN')) &
-                      (~lp_df.index.str.contains('UP')) & (~lp_df.index.str.contains('BEAR')) &
-                      (~lp_df.index.str.contains('BULL'))].copy().rename(columns={'price': 'f_price'})
+        lp_df = lp_df[(lp_df.index.str.endswith('BTCUSDT')) | (lp_df.index.str.endswith('BTC')) &
+                      ((~lp_df.index.str.contains('DOWN')) | (~lp_df.index.str.contains('UP')) |
+                      (~lp_df.index.str.contains('BEAR')) | (~lp_df.index.str.contains('BULL')))].\
+                        copy().rename(columns={'price': 'f_price'})
         sleep(self.seconds)
         lp2_df = spot_last_price().set_index('symbol')
 
@@ -228,8 +242,9 @@ class PumpAllBot:
         self.trade = Spot_Trade(symbol=symbol, side=1, trade_type='MARKET', usdt=self.usdt, lastPrice=lp,
                                 BTCUSDT_lp=lp_btcusdt)
         self.trade.enter_trade()
-        scal_obj = self.trade.scaling_correction([0.6, 0.4], [0.1, 0.3], 0.05)
-        self.trade.set_scaling_OCO_sell(scal_obj)
+        self.trade.market_sell()
+        # scal_obj = self.trade.scaling_correction([0.6, 0.4], [0.1, 0.3], 0.05)
+        # self.trade.set_scaling_OCO_sell(scal_obj)
         # self.trade.init_scaling_OCO_sell()
         # df = self.trade.trade_to_df()
         # self.trades = pd.concat([self.trades, df])
@@ -256,5 +271,5 @@ class PumpAllBot:
 
 
 sleep_seconds = 0.5
-init = PumpAllBot(sleep_seconds, usdt=30, wallet='SPOT')
+init = PumpAllBot(sleep_seconds, usdt=15, wallet='SPOT')
 init.init()

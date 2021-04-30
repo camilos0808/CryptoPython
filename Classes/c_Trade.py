@@ -4,7 +4,7 @@ import math
 import pandas as pd
 import threading
 import datetime as dt
-from support_sendTGM import telegram_bot_sendtext
+from support_sendTGM import telegram_bot_sendtext_test
 from Classes.c_BinanceWebSocket import BinanceWebSocket
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,7 +13,9 @@ from Classes.c_Symbol import Symbol
 from os.path import join
 
 client = Client(api_key=keys.binance_api_key_out, api_secret=keys.binance_api_secret_out)
-side_d = {1: 'BUY', -1: 'SELL'}
+side_d = {
+    1: 'BUY',
+    -1: 'SELL'}
 
 ''''
 Auxiliary Methods
@@ -21,7 +23,9 @@ Auxiliary Methods
 
 
 def margin_type(symbol, marginType):
-    type = {0: 'CROSSED', 1: 'ISOLATED'}
+    type = {
+        0: 'CROSSED',
+        1: 'ISOLATED'}
     type = type[marginType]
     try:
         client.futures_change_margin_type(symbol=symbol, marginType=type)
@@ -29,7 +33,7 @@ def margin_type(symbol, marginType):
         pass
 
 
-def effective_trade_info_dict(order, oco=False):
+def effective_trade_info_dict(exchange,order, oco=False):
     if oco:
         order_one = order['orderReports'][0]
         order_two = order['orderReports'][1]
@@ -48,214 +52,193 @@ def effective_trade_info_dict(order, oco=False):
         quantity = stop_order['origQty']
         stop_price = stop_order['stopPrice']
 
-        return {'status': 'OPEN', 'stopId': stop_id, 'makerId': maker_id, 'qty': quantity, 'price': maker_price,
-                'stopPrice': stop_price, 'limitPrice': price}
+        return {
+            'status': 'OPEN',
+            'stopId': stop_id,
+            'makerId': maker_id,
+            'qty': quantity,
+            'price': maker_price,
+            'stopPrice': stop_price,
+            'limitPrice': price}
 
     else:
+        if exchange == 'SPOT':
+            price = float(order['fills'][0]['price'])
+            id = order['orderId']
+            time = float(order['transactTime'])
+            quantity = float(order['executedQty'])
+            return {
+                'entry': True,
+                'orderId': id,
+                'price': price,
+                'quantity': quantity,
+                'baseQty': quantity * price,
+                'time': time,
+                'order': order}
+        else:
+            price = float(order['avgPrice'])
+            id = order['orderId']
+            time = float(order['time'])
+            quantity = float(order['executedQty'])
+            return {
+                'entry': True,
+                'orderId': id,
+                'price': price,
+                'quantity': quantity,
+                'baseQty': quantity * price,
+                'time': time,
+                'order': order}
 
-        price = float(order['fills'][0]['price'])
-        id = order['orderId']
-        time = float(order['transactTime'])
-        quantity = float(order['executedQty'])
-        return {'entry': True, 'orderId': id, 'price': price, 'quantity': quantity, 'baseQty': quantity * price,
-                'time': time, 'order': order}
 
+class Futures_Trade:
+    SIDE_DICT = {
+        1: 'BUY',
+        -1: 'SELL'}
 
-# class Futures_Trade:
-#
-#     def __init__(self, side, symbol, leverage, trade_type, margin, **kwargs):
-#
-#         # REVISAR SI LA MONEDA EXISTE
-#
-#         tickers = pd.read_json(r'C:\Users\PC\PythonProjects\Crypto\futures_tickers.json')
-#         tickers = tickers[tickers['symbol'] == symbol].copy()
-#         if len(tickers) > 0:
-#
-#             self.symbol = symbol
-#             try:
-#                 decimals = int(tickers['quantityPrecision'].values[0])
-#                 self.quantity = (
-#                         math.ceil((kwargs['usdt'] / kwargs['lastPrice']) * (10 ** decimals)) / (10 ** decimals))
-#             except:
-#                 self.quantity = kwargs['quantity']
-#
-#         else:
-#             raise Exception('Esa moneda no existe o no esta habilitada {}'.format(symbol))
-#
-#         self.side = side
-#         self.margin = margin
-#         self.leverage = leverage
-#         self.open_orders = 0
-#         self.status = 'OPEN'
-#         self.ws_on = False
-#         self.trade_type = trade_type
-#         margin_type(symbol, margin)
-#         client.futures_change_leverage(leverage=self.leverage, symbol=self.symbol)
-#
-#         if trade_type == 'LIMIT':
-#             order = client.futures_create_order(symbol=symbol, type=trade_type, side=side_d[side],
-#                                                 quantity=self.quantity, timeInForce=kwargs['timeInForce'],
-#                                                 price=kwargs['price'])
-#         elif trade_type == 'MARKET':
-#             self.status = 'POSITION'
-#             order = client.futures_create_order(symbol=symbol, type=trade_type, side=side_d[side],
-#                                                 quantity=self.quantity)
-#
-#         elif trade_type == 'STOP' | trade_type == 'TAKE_PROFIT_MARKET':
-#             order = client.futures_create_order(symbol=symbol, type=trade_type, side=side_d[side],
-#                                                 quantity=self.quantity, stopPrice=kwargs['stopPrice'],
-#                                                 price=kwargs['price'])
-#
-#         elif trade_type == 'STOP_MARKET' | trade_type == 'TAKE_PROFIT':
-#             self.status = 'POSITION'
-#             order = client.futures_create_order(symbol=symbol, type=trade_type, side=side_d[side],
-#                                                 stopPrice=kwargs['stopPrice'])
-#
-#         elif trade_type == ' TRAILING_STOP_MARKET':
-#             order = client.futures_create_order(symbol=symbol, type=trade_type, side=side_d[side],
-#                                                 callbackRate=kwargs['callbackRate'])
-#
-#         else:
-#             raise Exception('TRADE TYPE incorrecto')
-#
-#         order = client.futures_get_order(orderId=order['orderId'], symbol=symbol)
-#
-#         self.id = order['orderId']
-#         self.time = float(order['updateTime'])
-#
-#         if self.status == 'POSITION':
-#             self.price = float(order['avgPrice'])
-#             self.usdt = self.quantity / leverage * self.price
-#             self.message()
-#
-#     def start_websocket(self):
-#
-#         if not self.ws_on:
-#             self.ws_on = True
-#             self.ws = BinanceWebSocket(symbol=self.symbol, timeframe='1h')
-#             p = threading.Thread(target=self.ws.ws.run_forever)
-#             p.start()
-#
-#     def stop_websocket(self):
-#         if self.ws_on:
-#             self.ws.ws.close()
-#             self.ws_on = False
-#
-#     def message(self):
-#
-#         t = {1: 'LONG', -1: 'SHORT'}
-#         s = {1: '📈', -1: '📉'}
-#         msg = '🤑💰 TRADE ALERT 💰🤑 \n ------------------------\n\n'
-#         wallet = '💡EXCHANGE: BINANCE FUTURES\n\n'
-#         coin = '🔣SYMBOL: {}\n\n'.format(self.symbol)
-#         type_str = '{}TYPE: {}\n\n'.format(s[self.side], t[self.side])
-#         price_str = '✅PRICE: {}\n\n'.format(self.price)
-#         usdt_str = '💸USDT: {}\n\n'.format(round(self.usdt, 2))
-#
-#         msg = msg + wallet + coin + type_str + price_str + usdt_str
-#
-#         print(msg)
-#
-#         # telegram_bot_sendtext(msg)
-#
-#     def change_entry(self, new_entry):
-#         last_status = self.check_status()
-#         if last_status == 'OPEN':
-#             if self.trade_type == 'LIMIT':
-#                 client.futures_cancel_order(symbol=self.symbol, orderId=self.id)
-#                 order = client.futures_create_order(symbol=self.symbol, type=self.trade_type, side=side_d[self.side],
-#                                                     quantity=self.quantity, timeInForce='GTC',
-#                                                     price=new_entry)
-#                 self.id = order['orderId']
-#                 self.time = float(order['updateTime'])
-#
-#             else:
-#                 print('Not Running yet for that type of trade')
-#
-#         else:
-#             print('POSITION ENTERED OR CLOSED')
-#
-#     def add_take_profit_order(self, type_profit, **kwargs):
-#
-#         if type_profit == 'TAKE_PROFIT':
-#             self.profit_order = Futures_Trade(side=self.side * -1, symbol=self.symbol, leverage=self.leverage,
-#                                               trade_type=type_profit, margin=self.margin, quantity=self.quantity,
-#                                               price=kwargs['price'], stopPrice=kwargs['stopPrice'])
-#             print('DONE')
-#         elif type_profit == 'LIMIT':
-#             self.profit_order = Futures_Trade(side=self.side * -1, symbol=self.symbol, leverage=self.leverage,
-#                                               trade_type=type_profit, margin=self.margin, quantity=self.quantity,
-#                                               price=kwargs['price'], timeInForce=kwargs['timeInForce'])
-#             print('DONE')
-#         elif type_profit == 'TAKE_PROFIT_MARKET':
-#             self.profit_order = Futures_Trade(side=self.side * -1, symbol=self.symbol, leverage=self.leverage,
-#                                               trade_type=type_profit, margin=self.margin, stopPrice=kwargs['stopPrice'])
-#             print('DONE')
-#         else:
-#             print('NO ES POSIBLE')
-#
-#     def add_stop_loss_order(self, type_stop, **kwargs):
-#
-#         if type_stop == 'TAKE_PROFIT':
-#             self.profit_order = Futures_Trade(side=self.side * -1, symbol=self.symbol, leverage=self.leverage,
-#                                               trade_type=type_stop, margin=self.margin, quantity=self.quantity,
-#                                               price=kwargs['price'], stopPrice=kwargs['stopPrice'])
-#             print('DONE')
-#         elif type_stop == 'LIMIT':
-#             self.profit_order = Futures_Trade(side=self.side * -1, symbol=self.symbol, leverage=self.leverage,
-#                                               trade_type=type_stop, margin=self.margin, quantity=self.quantity,
-#                                               price=kwargs['price'], timeInForce=kwargs['timeInForce'])
-#             print('DONE')
-#         elif type_stop == 'TAKE_PROFIT_MARKET':
-#             self.profit_order = Futures_Trade(side=self.side * -1, symbol=self.symbol, leverage=self.leverage,
-#                                               trade_type=type_stop, margin=self.margin, stopPrice=kwargs['stopPrice'])
-#             print('DONE')
-#         else:
-#             print('NO ES POSIBLE')
-#
-#         return
-#
-#     def close_position(self):
-#
-#         return
-#
-#     def check_status(self):
-#         if self.status == 'POSITION':
-#             positions = pd.DataFrame(client.futures_position_information())
-#             position = len(positions[(positions['positionAmt'].astype(float) == self.quantity) & (
-#                     positions['symbol'] == self.symbol)])
-#             if position == 0:
-#                 self.status = 'CLOSED'
-#         elif self.status == 'OPEN':
-#             order = client.futures_get_order(orderId=self.id, symbol=self.symbol)
-#             if float(order['avgPrice']) != 0:
-#                 self.status == 'OPEN'
-#
-#         return self.status
-#
-#     def save(self):
-#         return
-#
-#     def chart(self):
-#         if len(self.ws.fprices) > 0:
-#             X = pd.DataFrame(self.ws.fprices)[0].to_list()
-#             X_neg = (self.side * (np.array(X) / self.price - 1) * 100) * self.leverage
-#             X_pos = X_neg.copy()
-#             X_pos[X_pos <= 0] = np.nan
-#             X_neg[X_neg > 0] = np.nan
-#             # plt.figure(figsize=(6.6, 0.85))
-#             plt.plot(X_pos, color=[1.0, 0.5, 0.25], linewidth=0.5)
-#             plt.plot(X_neg, color='#A40C0C', linewidth=0.5)
-#             # plt.rc('ytick', labelsize=15)
-#             plt.gca().axes.get_xaxis().set_visible(False)
-#             plt.show()
-#             print('Done..')
-#         else:
-#             print('No Data')
+    def __init__(self, side, symbol, leverage, trade_type, margin, **kwargs):
+
+        self.symbol = Symbol(symbol)
+        if not self.symbol.futures_exists():
+            raise ValueError('not available in FUTURES')
+        self.side = side
+        self.margin = margin
+        self.leverage = leverage
+        self.quantity = self.quantity_init(kwargs)
+        self.status = 'OPEN'
+        self.ws_on = False
+        self.trade_type = trade_type
+        self.entry_info = []
+        self.sell_info = []
+        self.entry_time = dt.datetime.now()
+        margin_type(symbol, margin)
+        client.futures_change_leverage(leverage=self.leverage, symbol=self.symbol)
+
+    def quantity_init(self, kwargs: dict):
+        if 'quantity' in kwargs.keys():
+
+            qty = kwargs['quantity']*self.leverage
+
+        elif ('usdt' in kwargs.keys()) and ('lastPrice' in kwargs.keys()):
+            base_quantity = kwargs['usdt']
+            if type(kwargs['lastPrice']) != float:
+                kwargs['lastPrice'] = float(kwargs['lastPrice'])
+
+            qty = self.symbol.futures_correct_quantity(base_quantity*self.leverage / kwargs['lastPrice'])
+
+        else:
+            raise ValueError('Not possible to calculate %s quantity' % self.symbol.name)
+
+        return qty
+
+    def enter_trade(self, **kwargs):
+
+        trade_type = self.trade_type
+        if trade_type == 'LIMIT':
+            order = client.futures_create_order(symbol=self.symbol, type=trade_type, side=self.SIDE_DICT[self.side],
+                                                quantity=self.quantity, timeInForce='GTC',
+                                                price=kwargs['price'])
+        elif trade_type == 'MARKET':
+            self.status = 'POSITION'
+            order = client.futures_create_order(symbol=self.symbol, type=trade_type, side=self.SIDE_DICT[self.side],
+                                                quantity=self.quantity)
+
+        elif trade_type == 'STOP' | trade_type == 'TAKE_PROFIT_MARKET':
+            order = client.futures_create_order(symbol=self.symbol, type=trade_type, side=self.SIDE_DICT[self.side],
+                                                quantity=self.quantity, stopPrice=kwargs['stopPrice'],
+                                                price=kwargs['price'])
+
+        elif trade_type == 'STOP_MARKET' | trade_type == 'TAKE_PROFIT':
+            self.status = 'POSITION'
+            order = client.futures_create_order(symbol=self.symbol, type=trade_type, side=self.SIDE_DICT[self.side],
+                                                stopPrice=kwargs['stopPrice'])
+
+        elif trade_type == ' TRAILING_STOP_MARKET':
+            order = client.futures_create_order(symbol=self.symbol, type=trade_type, side=self.SIDE_DICT[self.side],
+                                                callbackRate=kwargs['callbackRate'])
+
+        else:
+            raise Exception('TRADE TYPE incorrecto')
+
+        order = client.futures_get_order(orderId=order['orderId'], symbol=self.symbol)
+
+        self.entry_info.append(effective_trade_info_dict('FUTURES',order))
+        self.message()
+
+    def start_websocket(self, price):
+
+        if not self.ws_on:
+            self.ws_on = True
+            self.ws = BinanceWebSocket(symbol=self.symbol, timeframe='1h', wallet='FUTURES', price=price)
+            p = threading.Thread(target=self.ws.ws.run_forever)
+            p.start()
+
+    def stop_websocket(self):
+        if self.ws_on:
+            self.ws.ws.close()
+            self.ws_on = False
+
+    def message(self):
+
+        t = {
+            1: 'LONG',
+            -1: 'SHORT'}
+        s = {
+            1: '📈',
+            -1: '📉'}
+        msg = '🤑💰 TRADE ALERT 💰🤑 \n ---------------------------\n\n'
+        wallet = '💡EXCHANGE: BINANCE FUTURES\n\n'
+        coin = '🔣SYMBOL: {}\n\n'.format(self.symbol)
+        type_str = '{}TYPE: {}\n\n'.format(s[self.side], t[self.side])
+        price_str = '✅PRICE: {}\n\n'.format(self.entry_info[0]['price'])
+
+        msg = msg + wallet + coin + type_str + price_str
+
+        telegram_bot_sendtext_test(msg)
+
+    def change_entry(self, new_entry):
+        last_status = self.check_status()
+        if last_status == 'OPEN':
+            if self.trade_type == 'LIMIT':
+                client.futures_cancel_order(symbol=self.symbol, orderId=self.id)
+                order = client.futures_create_order(symbol=self.symbol, type=self.trade_type, side=side_d[self.side],
+                                                    quantity=self.quantity, timeInForce='GTC',
+                                                    price=new_entry)
+                self.id = order['orderId']
+                self.time = float(order['updateTime'])
+
+            else:
+                print('Not Running yet for that type of trade')
+
+        else:
+            print('POSITION ENTERED OR CLOSED')
+
+    def set_take_profit_order(self, prc):
+
+        tp_price = self.entry_info[0]['price'] * (1 + self.side * prc)
+        correct_price = self.symbol.futures_correct_price(tp_price)
+        order = client.futures_create_order(symbol=self.symbol, type='LIMIT', side=side_d[-1*self.side],
+                                            quantity=self.quantity, timeInForce='GTC',price=correct_price)
+        print('DONE')
+
+    def check_status(self):
+        if self.status == 'POSITION':
+            positions = pd.DataFrame(client.futures_position_information())
+            position = len(positions[(positions['positionAmt'].astype(float) == self.quantity) & (
+                    positions['symbol'] == self.symbol)])
+            if position == 0:
+                self.status = 'CLOSED'
+        elif self.status == 'OPEN':
+            order = client.futures_get_order(orderId=self.id, symbol=self.symbol)
+            if float(order['avgPrice']) != 0:
+                self.status == 'OPEN'
+
+        return self.status
 
 
 class Spot_Trade:
-    SIDE_DICT = {1: 'BUY', -1: 'SELL'}
+    SIDE_DICT = {
+        1: 'BUY',
+        -1: 'SELL'}
 
     def __init__(self, symbol, side, trade_type, **kwargs):
         self.symbol = Symbol(symbol)
@@ -318,7 +301,7 @@ class Spot_Trade:
             self.status = 'POSITION'
             try:
                 order = client.create_order(symbol=self.symbol, type=self.trade_type, side=self.SIDE_DICT[self.side],
-                                        quantity=self.quantity)
+                                            quantity=self.quantity)
             except Exception as e:
                 print(e)
                 print(self.symbol)
@@ -326,7 +309,7 @@ class Spot_Trade:
                 self.custom_message('Error on buying %s' % self.symbol)
                 exit()
 
-            self.entry_info.append(effective_trade_info_dict(order))
+            self.entry_info.append(effective_trade_info_dict('SPOT',order))
             self.message()
 
     def start_websocket(self, price):
@@ -342,9 +325,9 @@ class Spot_Trade:
             self.ws.ws.close()
             self.ws_on = False
 
-    def custom_message(self,message):
+    def custom_message(self, message):
 
-        telegram_bot_sendtext(message)
+        telegram_bot_sendtext_test(message)
 
     def message(self):
 
@@ -356,7 +339,7 @@ class Spot_Trade:
 
         msg = msg + wallet + coin + price_str  # + usdt_str
 
-        telegram_bot_sendtext(msg)
+        telegram_bot_sendtext_test(msg)
 
     def OCO_order(self, qty, maker_price, stop_price, slprice):
 
@@ -394,7 +377,7 @@ class Spot_Trade:
         for scal_odr in scal_obj:
             order = self.OCO_order(scal_odr[3], scal_odr[2], scal_odr[1], scal_odr[0])
 
-            self.sell_info.append(effective_trade_info_dict(order, oco=True))
+            self.sell_info.append(effective_trade_info_dict('SPOT',order, oco=True))
 
         print('DONE')
 
@@ -453,11 +436,18 @@ class Spot_Trade:
         return status
 
     def market_sell(self):
-        order = client.create_order(symbol=self.symbol, side=self.SIDE_DICT[-1 * self.side], type='MARKET',
-                                    quantity=self.quantity)
+        h = input('y/n')
+        if h == 'y':
+            order = client.create_order(symbol=self.symbol, side=self.SIDE_DICT[-1 * self.side], type='MARKET',
+                                        quantity=self.quantity)
+            print('done')
+            self.sell_info.append(effective_trade_info_dict('SPOT',order))
 
-        self.sell_info.append(effective_trade_info_dict(order))
-
+    def set_take_profit_order(self, prc):
+        tp_price = self.entry_info[0]['price'] * (1 + self.side * prc)
+        correct_price = self.symbol.spot_correct_price(tp_price)
+        order = client.create_order(symbol=self.symbol, type='LIMIT', side=-1 * self.SIDE_DICT[self.side],
+                                    quantity=self.quantity, timeInForce='GTC', price=correct_price)
 
 # symbol = 'ETHBTC'
 # usdt = 30
@@ -474,3 +464,9 @@ class Spot_Trade:
 # a.set_scaling_OCO_sell(scal_obj)
 # a.init_scaling_OCO_sell()
 # a = 1
+symbol = 'BTCUSDT'
+price = 55073.85
+#
+# trade = Futures_Trade(symbol=symbol, lastPrice=price, side=1, leverage=1,
+#                                       trade_type='MARKET',
+#                                       margin=1, usdt=5.5)
